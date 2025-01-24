@@ -1,0 +1,252 @@
+---
+title: "Sport Analytics Project"
+output: word_document
+date: "2024-12-02"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Import Data
+```{r}
+# read in data
+kickers <- read.csv("NFL_Kicker_Stats.csv")
+
+# remove games when kickers were inactive, injured or other
+kickers <- kickers[!kickers$Status %in% c("Inactive", "Injured Reserve", "COVID-19 List", "Exempt List"),]
+
+# remove tied games
+kickers <- kickers[kickers$Result != "T",]
+
+# create binary variable for game win or loss
+kickers$WinLoss <- ifelse(kickers$Result == "W", 1, 0)
+
+# create continuous variable for kicker points missed 
+kickers$PtsMissed <- (kickers$XPA - kickers$XPM) + 3*(kickers$FGA - kickers$FGM) 
+
+# create continuous variable for difference in scores
+kickers$ScoreDiff <- kickers$TmScore - kickers$OppScore
+
+# create continuous variable for percentage of team's score that is kicker points
+kickers$TmScoreKPts. <- ifelse(kickers$Pts == 0, 0, (kickers$Pts / kickers$TmScore) * 100)
+
+# print first 6 rows
+head(kickers)
+```
+
+Explain Data 
+# All current NFL kickers (32) career statistics by game
+# 23 variables with information about game and kicker statistics
+# 2932 observations (every game a current kicker has played)
+
+Inspiration
+# The Steelers won against the Baltimore Ravens without scoring a touchdown, relying on six field goals from Boswell to get the 18-16 win
+# It was Boswell's third career game with six FGs, which makes him the first kicker in NFL history to accomplish that
+
+Problem Statement
+# How important is a kicker to an NFL team? Do you need a successful kicker to win games? How detrimental is it to the team if a kicker misses field goals and extra points?
+# Are we able to predict if a team will win a game based on game-by-game kicker statistics such as field goal percentages, extra point percentages, total number of points scored by the kicker?
+# What relationships exist between kicker success and team success? Is there a noticeable difference in kicker performance for teams losing more games?
+
+Highlight Important Variables
+# Target: 
+# WinLoss (0, 1) - whether team won or lost game
+
+# Possible Predictors/Continuous Variables: 
+# Player - kicker's name
+# HomeAway - whether or not the game was home or away
+# XP. - percentage of extra points kicker made out of total attempts
+# FG. - percentage of field goals kicker made out of total attempts 
+# Pts - total kicker points 
+# PtsMissed - total points kicker failed to gain
+# TmScoreKPts. - percentage of team's score that is kicker points
+# ScoreDiff - difference in team's scores
+
+Statistics to Look At
+```{r}
+# average difference in scores across these games
+mean(abs(kickers$ScoreDiff))
+
+# average percentage of kicker points that make up team's score
+mean(kickers$TmScoreKPts.)
+
+# average FG percentage
+mean(kickers$FG.)
+
+# average XP percentage
+mean(kickers$XP.)
+
+# probability of winning and losing from this data
+sum(kickers$WinLoss == 1) / nrow(kickers)
+sum(kickers$WinLoss == 0) / nrow(kickers)
+
+# proportion of games won with a kicker that has a FG percentage of 80% or greater for that game
+sum(kickers$FG. >= 80 & kickers$WinLoss == 1) / nrow(kickers)
+
+# proportion of games won with a kicker that has a FG percentage less than 50% for that game
+sum(kickers$FG. < 50 & kickers$WinLoss == 1) / nrow(kickers)
+
+# proportion of games won with a kicker that has a XP percentage of 90% or greater for that game
+sum(kickers$XP. >= 90 & kickers$WinLoss == 1) / nrow(kickers)
+
+# proportion of games won with a kicker that has a XP percentage less than 60% for that game
+sum(kickers$XP. < 60 & kickers$WinLoss == 1) / nrow(kickers)
+
+# proportion of times a game was lost by less than or equal to the number of points missed by kicker
+sum(abs(kickers$ScoreDiff) <= kickers$PtsMissed & kickers$Result == "L") / nrow(kickers)
+```
+
+Visuals (Charts, Graphs, Tables)
+```{r}
+# boxplot of kicker points and game results
+boxplot(Pts ~ Result, data = kickers,
+        main = "Kicker Points per Game vs Wins/Losses",
+        xlab = "Wins vs Losses",
+        ylab = "Kicker Points per Game",
+        col = c("lightcoral","lightseagreen"))
+
+# boxplot of kicker points missed and game results
+boxplot(PtsMissed ~ Result, data = kickers,
+        main = "Kicker Points Missed per Game vs Wins/Losses",
+        xlab = "Wins vs Losses",
+        ylab = "Kicker Points Missed per Game",
+        col = c("lightcoral","lightseagreen"))
+
+# histogram of percentage of score made up of kicker points
+hist(kickers$TmScoreKPts.,
+     main = "Histogram of Percentages of Team Score that is Kicker Points",
+     xlab = "Percentage of Score that is Kicker Points",
+     col = "lightblue")
+# skewed to the right, but majority between 20-30%
+
+# plot of wins by player
+wins <- tapply(kickers$WinLoss, kickers$Player, sum)
+sorted_wins <- sort(wins, decreasing = TRUE)
+players <- names(sorted_wins)
+
+plot(sorted_wins,
+     main = "Number of Wins of Each Player in Career",
+     xlab = "Player",
+     ylab = "Number of Wins",
+     xaxt = "n",
+     col = "dodgerblue", 
+     pch = 16,      
+     las = 2)
+axis(1, at = seq(1, 32, by = 1), labels = players1, las = 2, cex.axis = 0.5)
+
+# plot of mean FG % by player
+means <- tapply(kickers$FG., kickers$Player, mean)
+sorted_means <- means[players]
+plot(sorted_means,
+     main = "Mean FG % of Each Player Over Career",
+     xlab = "Player",
+     ylab = "Mean FG %",
+     xaxt = "n",
+     col = "violet",
+     pch = 16,      
+     las = 2)  
+axis(1, at = seq(1, 32, by = 1), labels = players, las = 2, cex.axis = 0.5)
+
+# plot of mean XP % by player
+means <- tapply(kickers$XP., kickers$Player, mean)
+sorted_means <- means[players]
+plot(sorted_means,
+     main = "Mean XP % of Each Player Over Career",
+     xlab = "Player",
+     ylab = "Mean XP %",
+     xaxt = "n",
+     col = "violet",
+     pch = 16,      
+     las = 2)  
+axis(1, at = seq(1, 32, by = 1), labels = players, las = 2, cex.axis = 0.5)
+```
+
+Observe Relationships between Variables (Tests)
+```{r}
+# t-test between kicker points in winning games v losing games
+t.test(kickers$Pts[kickers$WinLoss == 1], kickers$Pts[kickers$WinLoss == 0])
+
+# p-value is low, true difference in mean kicker points between wins and losses is not equal to 0
+# kicker points are higher in games that are won
+
+# t-test between kicker points missed in winning games v losing games
+t.test(kickers$PtsMissed[kickers$WinLoss == 1], kickers$PtsMissed[kickers$WinLoss == 0])
+
+# p-value is low, true difference in mean kicker points missed between wins and losses is not equal to 0
+# less kicker points are missed in games that are won
+
+#install.packages("vcd")
+library(vcd)
+
+# chisq-test between field goal % and win/loss
+kicker_cat <- cut(kickers$FG., breaks = c(0, 50, 70, 90, 100), labels = c("Low", "Medium", "High", "Very High"))
+winloss_fgp <- table(kickers$WinLoss, kicker_cat)
+chisq.test(winloss_fgp)
+
+# cramer's v
+assoc_stats <- assocstats(winloss_fgp)
+assoc_stats$cramer
+
+# chisq-test between extra point % and win/loss
+kicker_cat <- cut(kickers$XP., breaks = c(0, 50, 70, 90, 100), labels = c("Low", "Medium", "High", "Very High"))
+winloss_xpp <- table(kickers$WinLoss, kicker_cat)
+chisq.test(winloss_xpp)
+
+# cramer's v
+assoc_stats <- assocstats(winloss_xpp)
+assoc_stats$cramer
+```
+
+Check for Multicollinearity
+```{r}
+# only consider Variables that are not highly correlated (cor > 0.6 or cor < -0.6)
+cor_coeffs <- cor(kickers[,c(9,10,12:25)])
+high_cor <- which(abs(cor_coeffs) > 0.6, arr.ind = TRUE)
+high_cor <- high_cor[high_cor[,1] < high_cor[,2], ]
+high_cor_values <- cor_coeffs[high_cor]
+high_cor_vars <- data.frame(
+  Var1 = colnames(cor_coeffs)[high_cor[, 1]],
+  Var2 = colnames(cor_coeffs)[high_cor[, 2]],
+  Correlation = high_cor_values
+)
+high_cor_vars
+```
+
+Models
+```{r}
+# predict team score for a game based on:
+# extra point percentage, field goal percentage, kicker points, points missed by kicker
+model1 <- lm(TmScore ~ XP. + FG. + Pts + PtsMissed, data = kickers)
+summary(model1)
+```
+
+```{r}
+# predict win or loss of game based on:
+# kicker points, points missed by kicker
+model2 <- glm(WinLoss ~ Pts + PtsMissed, data = kickers, family = "binomial")
+summary(model2)
+```
+Pseudo R^2
+```{r}
+pseudo <- 1 - (model2$deviance / model2$null.deviance)
+pseudo
+```
+Odds Ratios
+```{r}
+odds <- exp(coef(model2))
+odds <- round(odds, 3)
+odds
+
+# for each additional kicker point, the odds of winning the game increase by about 26.2%
+# for each additional kicker point missed, the odds of winning the game decrease by about 4.2%
+```
+
+
+
+
+
+
+
+
+
